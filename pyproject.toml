@@ -1,0 +1,13 @@
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F"]
+# E402: modules add their own directory to sys.path before sibling imports; E501/E702: original code style kept
+ignore = ["E402", "E501", "E702"]
+per-file-ignores = { "*.ipynb" = ["E401"] }
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

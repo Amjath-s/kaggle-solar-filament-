@@ -1,0 +1,10 @@
+data/
+outputs/
+work/
+*.executed.ipynb
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+yolo11s-seg.pt
+configs/yolo11s-p2last-seg.yaml
