@@ -1,0 +1,43 @@
+{
+  "axes": {
+    "refiner": [
+      "hard_tta",
+      "r18aug_tta",
+      "r18aughard_tta"
+    ],
+    "conf": [
+      0.35
+    ],
+    "thr": [
+      0.5
+    ],
+    "supp_iou": [
+      0.25
+    ],
+    "rescue": [
+      Infinity
+    ],
+    "post": [
+      "none"
+    ],
+    "score": [
+      "conf_prob"
+    ],
+    "det": [
+      "single",
+      "both"
+    ],
+    "merge_gap": [
+      0
+    ]
+  },
+  "gt": "primary",
+  "n_val": 141,
+  "baseline": {
+    "pq": 0.43892,
+    "tp": 667,
+    "fp": 283,
+    "fn": 478
+  },
+  "elapsed_s": 251.38087224960327
+}

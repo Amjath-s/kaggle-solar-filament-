@@ -1,0 +1,13 @@
+# V12 Kaggle upload — install only what is missing on the runtime.
+# Kaggle GPU images usually already ship torch / torchvision / numpy.
+
+ultralytics>=8.3.0,<9
+
+numpy>=1.23
+Pillow>=9.0
+PyYAML>=6.0
+tqdm>=4.65
+opencv-python-headless>=4.8
+
+# torch / torchvision: use the Kaggle preinstalled CUDA build.
+# Do not pip-install a CPU wheel over the GPU one unless necessary.

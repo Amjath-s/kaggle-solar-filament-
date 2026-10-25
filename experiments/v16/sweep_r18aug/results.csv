@@ -1,0 +1,7 @@
+refiner,conf,thr,supp_iou,rescue,post,score,det,merge_gap,pq,sq,rq,tp,fp,fn,n_pred,d_pq
+r18aug_tta,0.35,0.5,0.25,inf,none,conf_prob,both,0,0.465107,0.695667,0.668577,700,249,445,949,0.026187
+hard_tta,0.35,0.5,0.25,inf,none,conf_prob,both,0,0.46314,0.690428,0.670802,703,248,442,951,0.02422
+r18aughard_tta,0.35,0.5,0.25,inf,none,conf_prob,both,0,0.460466,0.692353,0.665074,696,252,449,948,0.021546
+hard_tta,0.35,0.5,0.25,inf,none,conf_prob,single,0,0.459003,0.692444,0.662873,699,265,446,964,0.020083
+r18aug_tta,0.35,0.5,0.25,inf,none,conf_prob,single,0,0.45814,0.698134,0.656235,692,272,453,964,0.01922
+r18aughard_tta,0.35,0.5,0.25,inf,none,conf_prob,single,0,0.454202,0.695147,0.65339,689,275,456,964,0.015282

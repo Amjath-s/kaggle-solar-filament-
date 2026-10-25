@@ -1,0 +1,65 @@
+# Virtual env
+.venv/
+venv/
+env/
+
+# Data (large; keep local)
+data/raw/
+*.zip
+# data/splits/*.txt are small and should be kept
+
+# Models / checkpoints
+models/**/*.pt
+models/**/*.pth
+models/**/*.ckpt
+models/**/*.onnx
+!models/**/README.md
+
+# Experiments artifacts
+experiments/**/logs/
+experiments/**/*.pt
+experiments/**/*.pth
+experiments/**/predictions/
+experiments/**/checkpoints/
+!experiments/**/README.md
+!experiments/**/notes.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs / cache
+logs/
+cache/
+*.log
+.cache/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+**/credentials*
+**/kaggle.json
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Submissions
+submissions/*.csv
+!submissions/README.md
+!submissions/submission_log.csv

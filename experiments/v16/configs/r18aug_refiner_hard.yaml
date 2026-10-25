@@ -1,0 +1,71 @@
+# V16 - hard-example fine-tune of V16 ResNet18 aug base, augmentation ON
+seed: 42
+
+experiment: v16_r18aug_hard
+hypothesis: >
+  Oversample TRAIN crops where locked refiner IoU is in [0.30, 0.50), fine-tune
+  from V12 best.pt at low LR; promote only if full-val non-overlap PQ > 0.4373.
+
+data:
+  images_dir: data/raw/MAGFiLO_1.0_Kaggle_2026/train/train_images
+  annotations: data/raw/MAGFiLO_1.0_Kaggle_2026/train/MAGFiLO_1.0_Annotations_kaggle2026_train.json
+  splits_dir: data/splits
+  crop_root: experiments/v16/r18aug_hard/crops
+
+yolo:
+  weights: experiments/v12/yolo11s/weights/best.pt
+  conf: 0.30
+  iou: 0.7
+  imgsz: 1024
+
+image_size: 256
+pad_frac: 0.20
+batch_size: 8
+num_workers: 0
+epochs: 20
+patience: 8
+learning_rate: 0.00005
+optimizer: adamw
+weight_decay: 0.0001
+loss: bce_dice
+bce_weight: 0.5
+dice_weight: 0.5
+threshold: 0.45
+amp: true
+num_classes: 1
+
+augmentation:
+  hflip: true
+  vflip: true
+  rotate_deg: 30
+  translate_frac: 0.05
+  scale_range: [0.85, 1.15]
+  p: 0.5
+
+model:
+  name: resnet18_unet
+  in_channels: 1
+  pretrained: true
+
+infer:
+  yolo_weights: experiments/v12/yolo11s/weights/best.pt
+  yolo_conf: 0.40
+  yolo_iou: 0.7
+  yolo_imgsz: 1024
+  local_checkpoint: experiments/v16/r18aug_hard/best.pt
+  pad_frac: 0.20
+  threshold: 0.45
+  min_area: 80
+  seed_dilate: 7
+  match_iou: 0.5
+  nms_iou: 0.5
+  use_consensus: true
+  use_orphans: false
+  out_size: 2048
+
+gates:
+  promote_pq: 0.4631
+
+output:
+  checkpoint_dir: experiments/v16/r18aug_hard
+  dir: experiments/v16/r18aug_hard

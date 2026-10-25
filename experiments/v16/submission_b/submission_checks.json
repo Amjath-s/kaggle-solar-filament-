@@ -1,0 +1,35 @@
+{
+  "output": "submissions/submission_v16b_v12yolo_r18aug_c035_t050_s025.csv",
+  "n_rows": 1251,
+  "n_images": 180,
+  "empty_pred_images": 2,
+  "strict_nonoverlap_verified": true,
+  "val": {
+    "pq": 0.45814,
+    "sq": 0.698134,
+    "rq": 0.656235,
+    "tp": 692,
+    "fp": 272,
+    "fn": 453,
+    "n_val": 141
+  },
+  "knobs": {
+    "yolo_weights": "experiments/v12/yolo11s/weights/best.pt",
+    "yolo_weights2": "experiments/v14/yolo11s/weights/best.pt",
+    "det": "single",
+    "refiner": "experiments/v16/r18aug_refiner/best.pt",
+    "refiner_tta": "4flip",
+    "yolo_imgsz": 1024,
+    "yolo_conf": 0.35,
+    "yolo_iou": 0.7,
+    "match_iou": 0.5,
+    "nms_iou": 0.5,
+    "pad_frac": 0.2,
+    "image_size": 256,
+    "threshold": 0.5,
+    "seed_dilate": 7,
+    "min_area": 80,
+    "supp_iou": 0.25,
+    "score": "conf_x_mean_prob"
+  }
+}

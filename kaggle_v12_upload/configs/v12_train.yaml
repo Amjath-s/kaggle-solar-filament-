@@ -1,0 +1,20 @@
+# V12 YOLO11s-seg detector training (Kaggle GPU)
+# Friend V17 recipe: imgsz 1024, all-annotator labels, no train flips.
+
+# no_box-oriented retrain: longer schedule, same imgsz/model/split (no flips).
+model: yolo11s-seg.pt
+imgsz: 1024
+epochs: 80
+patience: 20
+batch: 4
+seed: 42
+amp: true
+device: "0"
+workers: 2
+mask_ratio: 1
+flipud: 0.0
+fliplr: 0.0
+# On OOM: reduce batch then accumulate. Keep imgsz=1024 (do not silently swap model).
+imgsz_fallback: []
+name: yolo11s
+project_subdir: v12_outputs/yolo11s
