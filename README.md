@@ -46,9 +46,14 @@ The train/val split used for every local score is in `data/splits/train.txt` and
 
 ## Weights
 
-- YOLO detector: `experiments/v12/yolo11s/weights/best.pt` (included).
-- Refiner: `experiments/v16/r18aug_refiner/best.pt` (172 MB, not included — over GitHub's 100 MB limit).
-  Retrain it with the step below.
+- YOLO detector: `experiments/v12/yolo11s/weights/best.pt` (20 MB, included).
+- Refiner: `experiments/v16/r18aug_refiner/best_slim.pt` (~55 MB, included). This is the training
+  checkpoint `best.pt` (172 MB) with the AdamW optimizer state removed; the fp32 weights are unchanged,
+  so predictions are identical. To regenerate it from a (re)trained `best.pt`:
+
+```powershell
+python -u scripts/export_refiner_weights.py   # best.pt -> best_slim.pt, verifies tensors + size
+```
 
 ## Train
 
@@ -61,6 +66,7 @@ Kaggle dataset, attach the competition data, run `kaggle_v12_train.ipynb`, then 
 
 ```powershell
 python -u scripts/train_local_refiner.py --config experiments/v16/configs/r18aug_refiner.yaml
+python -u scripts/export_refiner_weights.py
 ```
 
 ## Make the submission

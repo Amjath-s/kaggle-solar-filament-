@@ -23,6 +23,9 @@ experiments/**/predictions/
 experiments/**/checkpoints/
 !experiments/**/README.md
 !experiments/**/notes.md
+# Shipped inference weights (required by the final submission; each < 100 MB)
+!experiments/v12/yolo11s/weights/best.pt
+!experiments/v16/r18aug_refiner/best_slim.pt
 
 # Python
 __pycache__/
