@@ -134,6 +134,7 @@ def build_split(
     yolo_iou: float,
     ov: dict,
     seed: int,
+    raster: str = "pil",
 ) -> tuple[list[dict], dict]:
     rng = random.Random(seed)
     split_dir = out_dir / split
@@ -151,8 +152,8 @@ def build_split(
         img = np.asarray(Image.open(path).convert("L"), dtype=np.uint8)
         h, w = img.shape[:2]
         anns = file_to_anns.get(name, [])
-        gt_masks = anns_to_instance_masks(anns, height=h, width=w)
-        union = polygons_to_mask(anns, height=h, width=w)
+        gt_masks = anns_to_instance_masks(anns, height=h, width=w, raster=raster)
+        union = polygons_to_mask(anns, height=h, width=w, raster=raster)
 
         boxes = yolo_boxes_xyxy(yolo, path, yolo_imgsz, yolo_conf, yolo_device, yolo_iou)
         per_image_counts.append(int(len(boxes)))
@@ -275,6 +276,7 @@ def main() -> None:
         "yolo_iou": float(yolo_cfg.get("iou", 0.7)),
         "yolo_imgsz": int(yolo_cfg.get("imgsz", 640)),
         "normalization": "uint8/255",
+        "raster": cfg["data"].get("raster", "pil"),
         "overlap": ov,
         "splits": {},
     }
@@ -296,6 +298,7 @@ def main() -> None:
             yolo_iou=float(yolo_cfg.get("iou", 0.7)),
             ov=ov,
             seed=int(cfg.get("seed", 42)) + seed_off,
+            raster=meta["raster"],
         )
         meta["splits"][split] = census
         print(f"{split} census:", json.dumps(census, indent=2))

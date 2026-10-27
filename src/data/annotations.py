@@ -1,4 +1,11 @@
-"""COCO-like annotation loading and polygon → binary mask."""
+"""COCO-like annotation loading and polygon → binary mask.
+
+Rasterization (`raster`):
+  pil  : PIL polygon fill + outline (legacy; every local score up to v16b used this). Includes the
+         boundary pixels, so thin filaments come out ~1 px fatter than the official masks.
+  coco : pycocotools frPyObjects/decode, the conversion Kaggle documents for the ground truth and
+         the submission format. Use this for anything compared against the leaderboard.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +15,8 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw
+
+RASTERS = ("pil", "coco")
 
 
 def load_coco(annotations_path: Path) -> dict:
@@ -59,23 +68,48 @@ def build_file_to_anns_primary(coco: dict) -> dict[str, list[dict]]:
     return out
 
 
-def ann_to_instance_mask(ann: dict, height: int, width: int) -> np.ndarray:
-    """Single annotation polygon(s) → binary uint8 mask."""
+def build_file_to_ann_sets(coco: dict) -> dict[str, list[list[dict]]]:
+    """Map file_name -> one annotation list per annotator (COCO image row), in JSON order."""
+    id_to_anns: dict = defaultdict(list)
+    for ann in coco["annotations"]:
+        id_to_anns[ann["image_id"]].append(ann)
+    out: dict[str, list[list[dict]]] = defaultdict(list)
+    for im in coco["images"]:
+        out[im["file_name"]].append(list(id_to_anns.get(im["id"], [])))
+    return dict(out)
+
+
+def _polys(anns: list[dict]) -> list[list[float]]:
+    return [p for a in anns for p in a.get("segmentation", []) if p and len(p) >= 6]
+
+
+def _raster(polys: list[list[float]], height: int, width: int, raster: str) -> np.ndarray:
+    if raster == "coco":
+        if not polys:
+            return np.zeros((height, width), dtype=np.uint8)
+        from pycocotools import mask as mask_utils
+
+        rle = mask_utils.merge(mask_utils.frPyObjects(polys, height, width))
+        return np.ascontiguousarray(mask_utils.decode(rle), dtype=np.uint8)
+    if raster != "pil":
+        raise ValueError(f"raster must be one of {RASTERS}, got {raster!r}")
     mask_img = Image.new("L", (width, height), 0)
     draw = ImageDraw.Draw(mask_img)
-    for poly in ann.get("segmentation", []):
-        if not poly or len(poly) < 6:
-            continue
-        xy = list(zip(poly[0::2], poly[1::2]))
-        draw.polygon(xy, outline=1, fill=1)
+    for poly in polys:
+        draw.polygon(list(zip(poly[0::2], poly[1::2])), outline=1, fill=1)
     return np.asarray(mask_img, dtype=np.uint8)
 
 
-def anns_to_instance_masks(anns: list[dict], height: int, width: int) -> list[np.ndarray]:
+def ann_to_instance_mask(ann: dict, height: int, width: int, raster: str = "pil") -> np.ndarray:
+    """Single annotation polygon(s) → binary uint8 mask."""
+    return _raster(_polys([ann]), height, width, raster)
+
+
+def anns_to_instance_masks(anns: list[dict], height: int, width: int, raster: str = "pil") -> list[np.ndarray]:
     """One mask per annotation; skip empty fills."""
     masks = []
     for ann in anns:
-        m = ann_to_instance_mask(ann, height, width)
+        m = ann_to_instance_mask(ann, height, width, raster)
         if m.sum() > 0:
             masks.append(m)
     return masks
@@ -85,14 +119,7 @@ def polygons_to_mask(
     anns: list[dict],
     height: int,
     width: int,
+    raster: str = "pil",
 ) -> np.ndarray:
     """Binary uint8 mask (H, W) with 0/1 from filled polygons."""
-    mask_img = Image.new("L", (width, height), 0)
-    draw = ImageDraw.Draw(mask_img)
-    for ann in anns:
-        for poly in ann.get("segmentation", []):
-            if not poly or len(poly) < 6:
-                continue
-            xy = list(zip(poly[0::2], poly[1::2]))
-            draw.polygon(xy, outline=1, fill=1)
-    return np.asarray(mask_img, dtype=np.uint8)
+    return _raster(_polys(anns), height, width, raster)

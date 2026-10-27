@@ -46,9 +46,14 @@ The train/val split used for every local score is in `data/splits/train.txt` and
 
 ## Weights
 
-- YOLO detector: `experiments/v12/yolo11s/weights/best.pt` (included).
-- Refiner: `experiments/v16/r18aug_refiner/best.pt` (172 MB, not included — over GitHub's 100 MB limit).
-  Retrain it with the step below.
+- YOLO detector: `experiments/v12/yolo11s/weights/best.pt` (20 MB, included).
+- Refiner: `experiments/v16/r18aug_refiner/best_slim.pt` (~55 MB, included). This is the training
+  checkpoint `best.pt` (172 MB) with the AdamW optimizer state removed; the fp32 weights are unchanged,
+  so predictions are identical. To regenerate it from a (re)trained `best.pt`:
+
+```powershell
+python -u scripts/export_refiner_weights.py   # best.pt -> best_slim.pt, verifies tensors + size
+```
 
 ## Train
 
@@ -61,6 +66,7 @@ Kaggle dataset, attach the competition data, run `kaggle_v12_train.ipynb`, then 
 
 ```powershell
 python -u scripts/train_local_refiner.py --config experiments/v16/configs/r18aug_refiner.yaml
+python -u scripts/export_refiner_weights.py
 ```
 
 ## Make the submission
@@ -72,3 +78,30 @@ python -u scripts/make_submission_v16b.py --skip-val  # test CSV only
 
 Output: `submissions/submission_v16b_v12yolo_r18aug_c035_t050_s025.csv`. All submissions and scores
 are logged in `submissions/submission_log.csv`.
+
+## v17 (in progress — not yet validated on real data)
+
+Fixes from the code review, each opt-in so v16b stays reproducible:
+
+- **Kaggle-faithful scoring.** Local GT used PIL polygon fills (~1 px fatter than the official
+  pycocotools masks) and a single "primary" annotator. `make_submission_v17.py` rasterizes with
+  pycocotools and reports PQ under four GT conventions (primary / first / each annotator / pooled),
+  pooled and per-image, to find which one reproduces the leaderboard.
+- **Detector recipe** (`kaggle_v12_upload/configs/v17_train.yaml`): flips and rotation on (inference
+  relies on flip agreement), one training sample per annotator with `overlap_mask: false`, `nbs: 16`
+  (v12 got only ~450 optimizer steps), 150 epochs.
+- **Inference** (`--preset v17`): mask-IoU cross-view NMS (keeps thin neighbours with overlapping
+  boxes), bilinear probability upsampling, one-piece hole-free masks, standard greedy suppression,
+  sliver filter. Opt-in: `agree=mask`, `partner_conf`, `fuse_seeds`, `limb_max_deg`.
+
+```powershell
+# 1. detector (Azure/Kaggle GPU); copy best.pt to experiments/v17/yolo11s/weights/best.pt
+python kaggle_v12_upload/run_v12_kaggle.py --config configs/v17_train.yaml --competition-root data/raw --work-root work
+# 2. refiner on pycocotools targets
+python -u scripts/build_yolo_crops.py --config experiments/v17/configs/r18aug_refiner.yaml
+python -u scripts/train_local_refiner.py --config experiments/v17/configs/r18aug_refiner.yaml
+# 3. A/B on val (same data, same weights), then the test CSV
+python -u scripts/make_submission_v17.py --preset v16b --skip-test
+python -u scripts/make_submission_v17.py --preset v17 --skip-test
+python -u scripts/make_submission_v17.py --preset v17 --skip-val --set yolo_weights=experiments/v17/yolo11s/weights/best.pt
+```

@@ -14,8 +14,12 @@ Changes vs make_submission_v12_indep_iou050_excl.py (sweep: experiments/v13/infe
 
 Uses the same functions as scripts/v13_inference_sweep.py, so val PQ here must match the sweep.
 
-    .venv\\Scripts\\python.exe -u scripts\\make_submission_v13_tuned.py            # val check + test CSV
-    .venv\\Scripts\\python.exe -u scripts\\make_submission_v13_tuned.py --skip-val
+Single detector only (the v12 YOLO); the second-detector path from v16 is removed so the script needs
+only the weights shipped in the repo. The refiner is the inference-only export of
+experiments/v16/r18aug_refiner/best.pt (scripts/export_refiner_weights.py), same fp32 tensors.
+
+    .venv\\Scripts\\python.exe -u scripts\\make_submission_v16b.py            # val check + test CSV
+    .venv\\Scripts\\python.exe -u scripts\\make_submission_v16b.py --skip-val
 """
 
 from __future__ import annotations
@@ -49,9 +53,8 @@ from src.utils.config import load_config, resolve_path
 
 KNOBS = {
     "yolo_weights": "experiments/v12/yolo11s/weights/best.pt",
-    "yolo_weights2": "experiments/v14/yolo11s/weights/best.pt",
     "det": "single",
-    "refiner": "experiments/v16/r18aug_refiner/best.pt",
+    "refiner": "experiments/v16/r18aug_refiner/best_slim.pt",
     "refiner_tta": "4flip",
     "yolo_imgsz": 1024,
     "yolo_conf": 0.35,
@@ -71,18 +74,10 @@ DEFAULT_OUT = "submissions/submission_v16b_v12yolo_r18aug_c035_t050_s025.csv"
 REPORT_DIR = ROOT / "experiments/v16/submission_b"
 
 
-def predict(yolos, models, img: np.ndarray, device) -> list[sw.Inst]:
+def predict(yolo, models, img: np.ndarray, device) -> list[sw.Inst]:
     k = KNOBS
     h, w = img.shape[:2]
-    boxes, confs, views, seeds = sw.detect_views(yolos[0], img, k["yolo_imgsz"], k["yolo_conf"], device)
-    b2 = []
-    if k["det"] != "single":  # single uses only the first detector; skip the second (halves CPU time)
-        b2, c2, v2, s2 = sw.detect_views(yolos[1], img, k["yolo_imgsz"], k["yolo_conf"], device)
-    if len(b2):  # second detector's views are offset by 4 so select(det="both") can tell them apart
-        boxes = np.concatenate([boxes, b2]) if len(boxes) else b2
-        confs = np.concatenate([confs, c2])
-        views = np.concatenate([views, v2 + len(sw.FLIP_VIEWS)])
-        seeds = seeds + s2
+    boxes, confs, views, seeds = sw.detect_views(yolo, img, k["yolo_imgsz"], k["yolo_conf"], device)
     if not len(boxes):
         return []
     biou = box_iou_matrix(boxes, boxes)
@@ -121,8 +116,11 @@ def main() -> int:
 
     cfg = load_config(ROOT / sw.REFINERS["r18aug"][1])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    yolo = [YOLO(str(resolve_path(ROOT, KNOBS[w]))) for w in ("yolo_weights", "yolo_weights2")]
-    models = {"r18aug": pipe.load_refiner(resolve_path(ROOT, KNOBS["refiner"]), cfg, device)}
+    yolo = YOLO(str(resolve_path(ROOT, KNOBS["yolo_weights"])))
+    refiner_path = resolve_path(ROOT, KNOBS["refiner"])
+    if not refiner_path.exists():
+        raise FileNotFoundError(f"{refiner_path} missing; run scripts/export_refiner_weights.py on the trained best.pt")
+    models = {"r18aug": pipe.load_refiner(refiner_path, cfg, device)}
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
     val = None
