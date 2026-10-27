@@ -89,10 +89,11 @@ def load_image_and_gt(
     path: Path,
     anns: list,
     out_size: int = OUT_SIZE,
+    raster: str = "pil",
 ) -> tuple[np.ndarray, np.ndarray, list[np.ndarray], float, float]:
     img_u8 = np.asarray(Image.open(path).convert("L"), dtype=np.uint8)
     h0, w0 = img_u8.shape[:2]
-    gt_native = anns_to_instance_masks(anns, height=h0, width=w0)
+    gt_native = anns_to_instance_masks(anns, height=h0, width=w0, raster=raster)
     if h0 == out_size and w0 == out_size:
         return img_u8, img_u8, gt_native, 1.0, 1.0
     img_out = np.asarray(

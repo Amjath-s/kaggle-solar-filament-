@@ -1,0 +1,32 @@
+# V17 YOLO11s-seg detector recipe (code review fixes vs v12_train.yaml).
+#   - flips + rotation ON: inference keeps a detection only if flipped views agree, so train on flips.
+#   - overlap_mask false + one sample per annotator: v12 stacked 2-3 annotators' near-duplicate
+#     polygons in one label file, and overlap_mask painted them over each other into slivers.
+#   - nbs 16: v12 ran batch 2 with Ultralytics' default nbs 64 (32-batch accumulation), only ~450
+#     optimizer steps in 50 epochs; best mAP was still at epoch 48.
+#   - mask_ratio 4 (Ultralytics default) frees memory for batch 8 on a 16 GB T4; final masks come
+#     from the refiner anyway.
+# Run 1: train_all false (measure on val with make_submission_v17.py). Final fit: train_all true.
+model: yolo11s-seg.pt
+imgsz: 1024
+epochs: 150
+patience: 40
+batch: 8
+seed: 42
+amp: true
+device: "0"
+workers: 4
+mask_ratio: 4
+flipud: 0.5
+fliplr: 0.5
+hyp:
+  overlap_mask: false
+  degrees: 15.0
+  nbs: 16
+  cos_lr: true
+  close_mosaic: 15
+export:
+  per_annotator: true
+  train_all: false
+  out_subdir: yolo_filament_v17
+project_subdir: v17_outputs/yolo11s

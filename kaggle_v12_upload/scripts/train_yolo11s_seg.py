@@ -3,6 +3,10 @@
 Friend V17 recipe: imgsz=1024, no train flips (flipud=0, fliplr=0).
 Never silently substitutes another model family. On OOM: reduce batch,
 then gradient accumulation; keep imgsz=1024.
+
+hyp: extra Ultralytics train() arguments from the config (v17: flips, rotation, overlap_mask=False,
+nbs, cos_lr, ...); they override the defaults above. Without an explicit nbs, Ultralytics accumulates
+gradients up to 64 images, i.e. only ~9 optimizer steps per epoch at batch 2 on 566 images.
 """
 
 from __future__ import annotations
@@ -41,6 +45,7 @@ def train_once(
     flipud: float,
     fliplr: float,
     accumulate: int = 1,
+    hyp: dict | None = None,
 ):
     import torch
     from ultralytics import YOLO
@@ -69,6 +74,7 @@ def train_once(
         flipud=float(flipud),
         fliplr=float(fliplr),
     )
+    kwargs.update(hyp or {})
     if accumulate > 1:
         kwargs["nbs"] = batch * accumulate
     return model.train(**kwargs)
@@ -90,6 +96,7 @@ def train_yolo11s(
     mask_ratio: int = 1,
     flipud: float = 0.0,
     fliplr: float = 0.0,
+    hyp: dict | None = None,
 ) -> dict:
     model_path = str(model_path)
     data_yaml = str(Path(data_yaml).resolve())
@@ -98,12 +105,9 @@ def train_yolo11s(
     project = out_dir.parent
     name = out_dir.name
 
-    name_l = Path(model_path).name.lower()
-    if "yolo11s" not in name_l and "yolo11s" not in model_path.lower():
-        raise RuntimeError(
-            f"Refusing to train non-YOLO11s weights for V12: {model_path}. "
-            "Do not substitute YOLO11m or YOLOv8."
-        )
+    # The model comes from the config by name; only refuse non-segmentation weights.
+    if "-seg" not in Path(model_path).name.lower():
+        raise RuntimeError(f"Refusing to train a non-segmentation model: {model_path}")
 
     batch_used = batch
     accumulate = 1
@@ -125,7 +129,7 @@ def train_yolo11s(
         try:
             print(
                 f"Training YOLO11s-seg imgsz={imgsz} batch={b} accumulate={acc} "
-                f"epochs={epochs} flipud={flipud} fliplr={fliplr} model={model_path}"
+                f"epochs={epochs} flipud={flipud} fliplr={fliplr} model={model_path} hyp={hyp or {}}"
             )
             train_once(
                 model_path,
@@ -144,6 +148,7 @@ def train_yolo11s(
                 flipud=flipud,
                 fliplr=fliplr,
                 accumulate=acc,
+                hyp=hyp,
             )
             batch_used = b
             accumulate = acc
@@ -192,6 +197,7 @@ def train_yolo11s(
         "mask_ratio": mask_ratio,
         "flipud": flipud,
         "fliplr": fliplr,
+        "hyp": hyp or {},
         "amp": amp,
         "device": device,
         "seed": seed,

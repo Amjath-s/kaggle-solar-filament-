@@ -1,0 +1,82 @@
+# V17 - V16 r18aug refiner, Kaggle-faithful (pycocotools) crop targets, crops from the v17 YOLO
+seed: 42
+
+experiment: v17_r18_aug_coco
+hypothesis: >
+  Refiner targets rasterized like the Kaggle GT (pycocotools, no PIL outline) stop the refiner
+  from learning ~1 px fatter masks, which cost IoU on thin filaments against the official GT.
+  Build crops with: python scripts/build_yolo_crops.py --config experiments/v17/configs/r18aug_refiner.yaml
+
+data:
+  images_dir: data/raw/MAGFiLO_1.0_Kaggle_2026/train/train_images
+  annotations: data/raw/MAGFiLO_1.0_Kaggle_2026/train/MAGFiLO_1.0_Annotations_kaggle2026_train.json
+  splits_dir: data/splits
+  crop_root: experiments/v17/crops
+  raster: coco
+
+yolo:
+  weights: experiments/v17/yolo11s/weights/best.pt
+  conf: 0.30
+  iou: 0.7
+  imgsz: 1024
+
+overlap:
+  hard_neg_max_iou: 0.05
+  hard_neg_max_inter_box: 0.02
+  positive_min_iou: 0.30
+  positive_min_inter_gt: 0.50
+  hard_neg_cap_vs_pos: 1.5
+
+image_size: 256
+pad_frac: 0.20
+batch_size: 8
+num_workers: 0
+epochs: 40
+patience: 12
+learning_rate: 0.0001
+optimizer: adamw
+weight_decay: 0.0001
+loss: bce_dice
+bce_weight: 0.5
+dice_weight: 0.5
+threshold: 0.45
+amp: true
+num_classes: 1
+
+augmentation:
+  hflip: true
+  vflip: true
+  rotate_deg: 30
+  translate_frac: 0.05
+  scale_range: [0.85, 1.15]
+  p: 0.5
+
+model:
+  name: resnet18_unet
+  in_channels: 1
+  pretrained: true
+
+infer:
+  yolo_weights: experiments/v17/yolo11s/weights/best.pt
+  yolo_conf: 0.30
+  yolo_iou: 0.7
+  yolo_imgsz: 1024
+  local_checkpoint: experiments/v17/r18aug_refiner/best.pt
+  pad_frac: 0.20
+  threshold: 0.45
+  min_area: 20
+  seed_dilate: 7
+  match_iou: 0.5
+  nms_iou: 0.5
+  use_consensus: true
+  use_orphans: false
+  out_size: 2048
+
+gates:
+  v7_pq_ref: 0.379
+  milestone_pq: 0.42
+  submit_ready_pq: 0.45
+
+output:
+  checkpoint_dir: experiments/v17/r18aug_refiner
+  dir: experiments/v17/r18aug_refiner

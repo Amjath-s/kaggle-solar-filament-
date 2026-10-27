@@ -120,11 +120,11 @@ def pq_counts(gts: list[Inst], preds: list[Inst], thr: float = 0.5) -> tuple[int
 
 
 # ---------------------------------------------------------------- detection
-def detect_views(yolo, img, imgsz, conf_min, device):
+def detect_views(yolo, img, imgsz, conf_min, device, iou=0.7):
     h, w = img.shape[:2]
     boxes, confs, views, seeds = [], [], [], []
     for vi, view in enumerate(FLIP_VIEWS):
-        b, c, m = yolo_seg_predict(yolo, flip_image(img, view), imgsz=imgsz, conf=conf_min, iou=0.7, device=device)
+        b, c, m = yolo_seg_predict(yolo, flip_image(img, view), imgsz=imgsz, conf=conf_min, iou=iou, device=device)
         b = inverse_flip_boxes(b, w, h, view)
         for k in range(len(b)):
             boxes.append(b[k])
@@ -136,7 +136,18 @@ def detect_views(yolo, img, imgsz, conf_min, device):
     return np.stack(boxes).astype(np.float32), np.asarray(confs, np.float32), np.asarray(views), seeds
 
 
-def select(boxes, confs, views, biou, conf, rescue, match_iou=0.5, nms_iou=0.5, det="single") -> list[int]:
+def seed_iou_matrix(seeds: list[np.ndarray], biou: np.ndarray) -> np.ndarray:
+    """Pairwise mask IoU of the YOLO seeds (only pairs whose boxes touch; others are 0)."""
+    insts = [Inst(0, 0, s > 0) for s in seeds]
+    n = len(insts)
+    out = np.eye(n, dtype=np.float32)
+    for i, j in zip(*np.nonzero(np.triu(biou > 0, k=1))):
+        out[i, j] = out[j, i] = iou(insts[i], insts[j])
+    return out
+
+
+def select(boxes, confs, views, biou, conf, rescue, match_iou=0.5, nms_iou=0.5, det="single",
+           agree_mat=None, nms_mat=None, partner_conf=None, clusters=False):
     """consensus_merge on candidates with conf>=conf, plus single-view rescue >= rescue.
 
     det (two-YOLO mode; views >= 4 come from the second detector):
@@ -144,32 +155,44 @@ def select(boxes, confs, views, biou, conf, rescue, match_iou=0.5, nms_iou=0.5, 
       second : second detector only
       union  : both detectors, any cross-view match counts
       both   : both detectors, a box must be matched by a view of the OTHER detector
+
+    agree_mat / nms_mat: pairwise overlap used for the cross-view match and for NMS (default: box IoU;
+    pass seed_iou_matrix for mask IoU, which does not confuse thin neighbours sharing a box).
+    partner_conf: a candidate (conf >= conf) may be confirmed by another view down to this conf.
+    clusters=True also returns, per kept index, the pool indices it would suppress (nms_mat > nms_iou),
+    i.e. its own other-view copies, so callers can fuse their seeds. Use with a mask nms_mat: with box
+    overlap a cluster can swallow a thin neighbour.
     """
-    cand = np.nonzero(confs >= conf)[0]
+    agree_mat = biou if agree_mat is None else agree_mat
+    nms_mat = biou if nms_mat is None else nms_mat
+    pool = np.nonzero(confs >= (conf if partner_conf is None else min(conf, partner_conf)))[0]
     src = views >= len(FLIP_VIEWS)
     if det == "single":
-        cand = cand[~src[cand]]
+        pool = pool[~src[pool]]
     elif det == "second":
-        cand = cand[src[cand]]
+        pool = pool[src[pool]]
+    cand = pool[confs[pool] >= conf]
     keep = []
     for i in cand:
         if det == "both":
-            matched = any(src[j] != src[i] and biou[i, j] >= match_iou for j in cand)
+            matched = any(src[j] != src[i] and agree_mat[i, j] >= match_iou for j in pool)
         else:
-            matched = any(j != i and views[j] != views[i] and biou[i, j] >= match_iou for j in cand)
+            matched = any(j != i and views[j] != views[i] and agree_mat[i, j] >= match_iou for j in pool)
         if matched or confs[i] >= rescue:
             keep.append(int(i))
     if not keep:
-        return []
+        return ([], {}) if clusters else []
     keep = np.asarray(keep)
     order = keep[np.argsort(-confs[keep], kind="stable")]
-    kept = []
+    kept, members = [], {}
     while order.size:
         c = int(order[0])
         kept.append(c)
         rest = order[1:]
-        order = rest[biou[c, rest] <= nms_iou]
-    return kept
+        order = rest[nms_mat[c, rest] <= nms_iou]
+        if clusters:
+            members[c] = sorted({c, *pool[nms_mat[c, pool] > nms_iou].tolist()})
+    return (kept, members) if clusters else kept
 
 
 # ---------------------------------------------------------------- refine
@@ -193,12 +216,25 @@ def refine_probs(models: dict, img, box, image_size, pad_frac, device):
     return exp, out
 
 
-def build_mask(prob, thr, exp, seed_allow, post) -> tuple[Inst, float]:
+def largest_component(m: np.ndarray) -> np.ndarray:
+    lab, n = ndi.label(m, structure=np.ones((3, 3)))
+    if n <= 1:
+        return m
+    sizes = ndi.sum(m, lab, index=np.arange(1, n + 1))
+    return lab == (int(np.argmax(sizes)) + 1)
+
+
+def build_mask(prob, thr, exp, seed_allow, post, upsample="nearest") -> tuple[Inst, float]:
+    """post: none | fill | fill_speck | fill_largest (one piece, no holes, as MAGFiLO labels are).
+    upsample: nearest (threshold at refiner res, then resize) | bilinear (resize probs, then threshold)."""
     pred = (prob >= thr).astype(np.uint8)
     cw, ch = int(exp[2] - exp[0]), int(exp[3] - exp[1])
-    m = np.asarray(Image.fromarray(pred * 255, mode="L").resize((cw, ch), Image.NEAREST)) > 127
+    if upsample == "bilinear":
+        m = np.asarray(Image.fromarray(prob.astype(np.float32), mode="F").resize((cw, ch), Image.BILINEAR)) >= thr
+    else:
+        m = np.asarray(Image.fromarray(pred * 255, mode="L").resize((cw, ch), Image.NEAREST)) > 127
     m = np.logical_and(m, seed_allow)
-    if post in ("fill", "fill_speck") and m.any():
+    if post in ("fill", "fill_speck", "fill_largest") and m.any():
         m = ndi.binary_fill_holes(m)
     if post == "fill_speck" and m.any():
         lab, n = ndi.label(m, structure=np.ones((3, 3)))
@@ -206,6 +242,8 @@ def build_mask(prob, thr, exp, seed_allow, post) -> tuple[Inst, float]:
             sizes = ndi.sum(m, lab, index=np.arange(1, n + 1))
             ok = np.nonzero(sizes >= 0.10 * sizes.max())[0] + 1
             m = np.isin(lab, ok)
+    if post == "fill_largest" and m.any():
+        m = largest_component(m)
     mp = float(prob[pred > 0].mean()) if pred.any() else 0.0
     return Inst(int(exp[1]), int(exp[0]), m), mp
 
@@ -257,22 +295,36 @@ def merge_fragments(insts: list[Inst], scores: np.ndarray, gap: int) -> tuple[li
 
 
 def finish(insts: list[Inst], scores: np.ndarray, min_area: int, supp_iou: float, h: int, w: int,
-           merge_gap: int = 0) -> list[Inst]:
+           merge_gap: int = 0, greedy: bool = False, min_keep_frac: float = 0.0,
+           one_piece: bool = False) -> list[Inst]:
+    """min_area -> duplicate suppression -> optional fragment merge -> score-ordered exclusive painting.
+
+    greedy=False (legacy): an instance is dropped if ANY higher-scoring instance overlaps it, even one
+    that was itself dropped (chain suppression). greedy=True: standard NMS, only kept instances suppress.
+    min_keep_frac: after painting, drop instances that kept less than this fraction of their area
+    (leftover slivers of a duplicate). one_piece: keep only the largest component of what was kept.
+    """
     idx = [i for i, m in enumerate(insts) if m.area >= min_area]
     insts = [insts[i] for i in idx]
     scores = scores[idx]
     n = len(insts)
     keep = []
-    for j in range(n):
-        best = 0.0
-        for i in range(n):
-            if i == j:
-                continue
-            higher = scores[i] > scores[j] + 1e-12 or (abs(float(scores[i] - scores[j])) <= 1e-12 and i < j)
-            if higher:
-                best = max(best, iou(insts[j], insts[i]))
-        if best < supp_iou:
-            keep.append(j)
+    if greedy:
+        for j in np.argsort(-scores, kind="stable"):
+            if all(iou(insts[int(j)], insts[k]) < supp_iou for k in keep):
+                keep.append(int(j))
+        keep.sort()
+    else:
+        for j in range(n):
+            best = 0.0
+            for i in range(n):
+                if i == j:
+                    continue
+                higher = scores[i] > scores[j] + 1e-12 or (abs(float(scores[i] - scores[j])) <= 1e-12 and i < j)
+                if higher:
+                    best = max(best, iou(insts[j], insts[i]))
+            if best < supp_iou:
+                keep.append(j)
     insts = [insts[i] for i in keep]
     scores = scores[keep]
     if merge_gap > 0 and len(insts) > 1:
@@ -283,7 +335,9 @@ def finish(insts: list[Inst], scores: np.ndarray, min_area: int, supp_iou: float
         a = insts[int(k)]
         reg = claimed[a.y0 : a.y0 + a.m.shape[0], a.x0 : a.x0 + a.m.shape[1]]
         kept = a.m & ~reg
-        if kept.any():
+        if one_piece and kept.any():
+            kept = largest_component(kept)
+        if kept.any() and kept.sum() >= min_keep_frac * a.area:
             reg |= kept
             b = Inst(a.y0, a.x0, kept)
             if b.area >= min_area:

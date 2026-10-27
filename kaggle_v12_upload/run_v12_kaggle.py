@@ -5,6 +5,8 @@ Usage:
   python run_v12_kaggle.py
   python run_v12_kaggle.py --dry-run
   python run_v12_kaggle.py --skip-train   # pack existing best.pt if present
+  python run_v12_kaggle.py --config configs/v17_train.yaml \
+      --competition-root /data/filament --work-root /data/work     # v17 recipe, e.g. on an Azure VM
 """
 
 from __future__ import annotations
@@ -122,18 +124,21 @@ def step3_split(roots) -> tuple[list[str], list[str]]:
     return train, val
 
 
-def step4_export(roots, work: Path) -> dict:
+def step4_export(roots, work: Path, cfg: dict) -> dict:
     print("=" * 60)
     print("STEP 4 — Export ALL-annotator YOLO-seg labels")
     print("=" * 60)
     from export_yolo_seg_all import export_yolo_dataset_all
 
-    out_dir = work / "yolo_filament_all"
+    exp_cfg = cfg.get("export", {})
+    out_dir = work / exp_cfg.get("out_subdir", "yolo_filament_all")
     summary = export_yolo_dataset_all(
         images_dir=roots.images_dir,
         annotations_path=roots.annotations_path,
         splits_dir=roots.splits_dir,
         out_dir=out_dir,
+        per_annotator=bool(exp_cfg.get("per_annotator", False)),
+        train_all=bool(exp_cfg.get("train_all", False)),
     )
     (work / "export_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return summary
@@ -198,6 +203,7 @@ def step5_train(roots, work: Path, export_summary: dict, cfg: dict, skip_train: 
         mask_ratio=int(cfg.get("mask_ratio", 1)),
         flipud=float(cfg.get("flipud", 0.0)),
         fliplr=float(cfg.get("fliplr", 0.0)),
+        hyp=cfg.get("hyp") or {},
     )
     return meta
 
@@ -269,6 +275,8 @@ def main() -> int:
     parser.add_argument("--work-root", type=str, default=None)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-train", action="store_true")
+    parser.add_argument("--config", type=str, default="configs/v12_train.yaml",
+                        help="training config, relative to the bundle root (or absolute)")
     args = parser.parse_args()
 
     env = step1_env()
@@ -282,7 +290,11 @@ def main() -> int:
     _unzip_bundle_zips(roots.bundle_root)
     train_names, val_names = step3_split(roots)
 
-    cfg_path = roots.bundle_root / "configs" / "v12_train.yaml"
+    cfg_path = Path(args.config)
+    if not cfg_path.is_absolute():
+        cfg_path = roots.bundle_root / cfg_path
+    if args.config != parser.get_default("config") and not cfg_path.is_file():
+        raise FileNotFoundError(f"--config not found: {cfg_path}")
     cfg = _load_yaml(cfg_path) if cfg_path.is_file() else {}
     print(f"config: {cfg_path}")
     print(json.dumps(cfg, indent=2))
@@ -297,7 +309,7 @@ def main() -> int:
         print(json.dumps({"env": env, "train": len(train_names), "val": len(val_names)}, indent=2))
         return 0
 
-    export_summary = step4_export(roots, work)
+    export_summary = step4_export(roots, work, cfg)
     train_meta = step5_train(roots, work, export_summary, cfg, skip_train=args.skip_train)
     zip_path = step6_export_zip(work, train_meta)
 
