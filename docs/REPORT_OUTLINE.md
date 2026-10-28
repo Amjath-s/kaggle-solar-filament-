@@ -51,10 +51,17 @@ Table 2 (what did not help — shows rigour; each vs the deployed model with fre
 - Detector union ensemble: union recall +0.026, but the realistic merged pool beats the best single source at
   1 of 7 confidences; 18.7 % of instances are missed by every detector.
 - Image-based candidate selector: +0.0005; proposal-geometry mask splitting: −0.0028; 1536 px training: no gain.
+- Larger detector and train-time flips (V101, fold 0, 141 files, refined path, seed noise ≈ ±0.002):
+  YOLO11m −0.0064 (P 0.13), flips −0.0076 (P 0.05), YOLO11m + flips −0.0100 (95 % CI [−0.023, +0.001], P 0.04).
+- Mask R-CNN as a YOLO-first gap filler (V101, same judge): ±0.0001. It found 2,326 instance groups on the
+  141 files, but only 1 (score ≥ 0.5) lay where the detector had proposed nothing, and it matched no annotation.
 
 ## 4. Discussion and limitations (~0.5 page)
 - Local-to-public gap (OOF 0.459 → 0.39) is shared by every clean team (0.05–0.08); attributable to annotator
   style on 90 public images and the ±0.012 two-decimal noise.
+- Misses are not missing proposals: 658 of 1,640 annotated instances on fold 0 match no kept candidate before
+  refinement, yet the detector proposes (at low score) almost everywhere a second architecture finds a filament.
+  The loss is in selection and mask shape, which V100 showed is bounded by annotator disagreement.
 - Ceiling: annotator disagreement on one-vs-many splits and near-limb filaments; instance boundaries are
   ambiguous from H-alpha alone.
 - Future work: annotator-aware training, external unlabelled H-alpha for self-supervised pretraining.
