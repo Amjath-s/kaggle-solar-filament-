@@ -126,7 +126,7 @@ must come from \emph{instance selection}, not extent. From V76 on, every detecto
 refined-pipeline gate.
 
 \begin{table}[t]\centering\small
-\caption{Selected pre-registered negatives Direct = detector only; refined = through the refiner. 141 held-out files (fold-0 screens or canonical
+\caption{Selected pre-registered negatives. Direct = detector only; refined = through the refiner. 141 held-out files (fold-0 screens or canonical
 hold-out), except refiner variants and re-scorer (707-file 5-fold).}
 \label{tab:neg}
 \setlength{\tabcolsep}{2.5pt}
@@ -265,7 +265,7 @@ Final all-data detector: 2.4 h (stage 1, 80 ep) + 2.1 h (stage 2, 20 ep) = 4.5 G
 LightGBM demote model: seconds on CPU. The full 5-fold OOF protocol costs $\approx$5$\times$ this.
 \textbf{Inference:} 180 test images in 3 shards of 60 on one T4 each, 148--152 s per shard, i.e.
 $\approx$\textbf{2.5 s/image} end-to-end (4-flip detector + 4-flip crop refiner + keep rule, model loading
-included). \todo{Kaggle-notebook GPU timing if the host requires it.}
+included). A rerun from the repository on 2026-10-29 reproduced the submitted CSV byte-for-byte.
 
 \section{Limitations}
 The final gain over V65 (+0.005) is small and passed its gate narrowly; the all-data refiner and demote model
