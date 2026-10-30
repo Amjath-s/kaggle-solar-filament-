@@ -193,6 +193,8 @@ after them: those steps already remove the fragments. Mask2Former (Swin-T, COCO;
 finds more filaments than V84 (1134 vs 1032 TP at confidence 0.5) but makes three times as many FP. Even the
 confidence chosen with hindsight on fold 0 reaches only 0.418 standalone (0.85) and 0.450 through our refiner
 (0.80), against 0.4555 for V84, in line with the 0.41 public score other teams report for this architecture.
+Submitted once as a diagnostic (fold-0 model, confidence 0.85), it scores 0.36 public: the same $\approx$0.86
+ratio of public score to held-out PQ as V84 (0.39 vs 0.4555).
 
 \textbf{OOF 0.459 vs public 0.39.} The export reproduces OOF bit-for-bit on all 707 training files (the test
 code path run on held-out folds). Five one-knob public probes moved the public score by the same amount as

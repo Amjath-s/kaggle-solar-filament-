@@ -77,7 +77,8 @@ Table 2 (what did not help — shows rigour; each vs the deployed model with fre
 - Mask2Former Swin-T re-run with the V19 bugs fixed (V108, fold 0; same resolution for training and scoring,
   warmup + cosine, 50 epochs, one sample per record): standalone at confidence 0.50 −0.095 (95 % CI [−0.112,
   −0.079]); through our refiner at cut 0.30 −0.120. More TP than V84 (1134 vs 1032) but 3× the FP; best
-  hindsight cells 0.418 (standalone, 0.85) and 0.450 (refined, 0.80) vs V84 0.4555.
+  hindsight cells 0.418 (standalone, 0.85) and 0.450 (refined, 0.80) vs V84 0.4555. Diagnostic submission of
+  the standalone fold-0 model at 0.85: public 0.36 (same ≈0.86 public/held-out ratio as V84).
 
 ## 4. Discussion and limitations (~0.5 page)
 - Local-to-public gap (OOF 0.459 → 0.39) is shared by every clean team (0.05–0.08). Five one-knob public probes
