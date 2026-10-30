@@ -23,8 +23,8 @@ The public board shows 2 decimals. The V84 OOF gain (+0.0050) is about the size 
 **Report.** `report/report.tex` describes the method, the host evaluation plots (IoU/Dice distributions, 1:n and
 n:1 counts), the annotator-agreement analysis and every pre-registered experiment that did not beat V84
 (how to regenerate the figures: `report/README.md`). In short: one annotator scored against the others reaches
-PQ 0.34, most remaining errors are filaments only some annotators drew, and 17 further experiments after V84
-(larger detectors, Mask R-CNN, a whole-disk U-Net, agreement-only labels, metric-aligned losses, fragment merging,
+PQ 0.34, most remaining errors are filaments only some annotators drew, and 18 further experiments after V84
+(larger detectors, Mask R-CNN, Mask2Former, a whole-disk U-Net, agreement-only labels, metric-aligned losses, fragment merging,
 a pixel quality head, per-instance thresholds) changed OOF PQ by at most +0.002.
 
 ## Pipeline (inference, one image at a time)

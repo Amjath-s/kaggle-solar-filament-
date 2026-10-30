@@ -74,6 +74,10 @@ Table 2 (what did not help — shows rigour; each vs the deployed model with fre
   than the LightGBM on 28 features (Spearman 0.572 vs 0.595); averaged with it, 0.612, and PQ +0.0019
   (95 % CI [+0.0003, +0.0035], 4/5 folds): a real but small gain, below our +0.005 shipping bar. Pixels add
   little beyond the detector score and hand features, as the literature on learned selectors suggests.
+- Mask2Former Swin-T re-run with the V19 bugs fixed (V108, fold 0; same resolution for training and scoring,
+  warmup + cosine, 50 epochs, one sample per record): standalone at confidence 0.50 −0.095 (95 % CI [−0.112,
+  −0.079]); through our refiner at cut 0.30 −0.120. More TP than V84 (1134 vs 1032) but 3× the FP; best
+  hindsight cells 0.418 (standalone, 0.85) and 0.450 (refined, 0.80) vs V84 0.4555.
 
 ## 4. Discussion and limitations (~0.5 page)
 - Local-to-public gap (OOF 0.459 → 0.39) is shared by every clean team (0.05–0.08). Five one-knob public probes
