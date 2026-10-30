@@ -79,6 +79,10 @@ Table 2 (what did not help — shows rigour; each vs the deployed model with fre
   −0.079]); through our refiner at cut 0.30 −0.120. More TP than V84 (1134 vs 1032) but 3× the FP; best
   hindsight cells 0.418 (standalone, 0.85) and 0.450 (refined, 0.80) vs V84 0.4555. Diagnostic submission of
   the standalone fold-0 model at 0.85: public 0.36 (same ≈0.86 public/held-out ratio as V84).
+- Mask2Former agreement as keep-rule evidence (V109, fold 0, nested 5-fold CV): three features per V84 candidate
+  (best IoU with a Mask2Former mask, its score, score-weighted coverage), Spearman 0.41–0.46 with the target.
+  +0.0042 over a re-calibration of V84's u-hat (95 % CI [−0.0015, +0.0101], P 0.92; INCONCLUSIVE vs the +0.008
+  bar), +0.0014 over the deployed rule; added to the 28 features it is −0.0024. Not pursued.
 
 ## 4. Discussion and limitations (~0.5 page)
 - Local-to-public gap (OOF 0.459 → 0.39) is shared by every clean team (0.05–0.08). Five one-knob public probes

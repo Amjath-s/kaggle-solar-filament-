@@ -15,7 +15,7 @@
 
 \title{\vspace{-1.2cm}Solar Filament Instance Segmentation on GONG H$\alpha$:\\
 a P2/stride-2 YOLO detector, crop refiner and agreement-calibrated keep rule}
-\author{\todo{team name / authors} \quad Repository:
+\author{Team WeAreBatman: \todo{author names} \quad Repository:
 \href{https://github.com/Amjath-s/kaggle-solar-filament-/tree/v84-final}{github.com/Amjath-s/kaggle-solar-filament- (branch v84-final)}}
 \date{\vspace{-0.9cm}}
 
@@ -27,8 +27,9 @@ We segment solar filaments on $2048^2$ GONG H$\alpha$ images with a P2-augmented
 4-flip consensus, a ResNet18 U-Net crop refiner and a learned keep rule that demotes masks a random
 annotator is unlikely to have drawn. On 5-fold out-of-fold (OOF) validation over all 707 training files the
 final pipeline reaches PQ \textbf{0.4590} (public LB 0.39). Human annotators agree with each other at only PQ
-$\approx$0.34, and most residual error is annotator disagreement rather than mask quality. Eighteen further
-pre-registered experiments (larger detectors, a second detector, Mask2Former, a whole-disk U-Net, agreement-only labels,
+$\approx$0.34, and most residual error is annotator disagreement rather than mask quality. Nineteen further
+pre-registered experiments (larger detectors, a second detector, Mask2Former alone and as a second opinion, a
+whole-disk U-Net, agreement-only labels,
 metric-aligned losses, fragment merging, a pixel-based quality head, per-instance thresholds) did not improve it
 by more than +0.002.
 \end{abstract}
@@ -179,6 +180,7 @@ merge collinear fragments (nested CV gap, angle) & 707 & $-$0.0002 \\
 quality CNN on 5-ch crops, averaged with LightGBM & 707 & +0.0019 [+.0003,+.0035] \\
 per-instance threshold maximising expected IoU & 707 & $-$0.0007 [$-$.002,+.001] \\
 Mask2Former Swin-T: standalone / through our refiner & f0 & $-$0.095 / $-$0.120 \\
+Mask2Former agreement as keep-rule features (nested CV) & f0 & +0.0014 [$-$.003,+.006] \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -194,7 +196,10 @@ finds more filaments than V84 (1134 vs 1032 TP at confidence 0.5) but makes thre
 confidence chosen with hindsight on fold 0 reaches only 0.418 standalone (0.85) and 0.450 through our refiner
 (0.80), against 0.4555 for V84, in line with the 0.41 public score other teams report for this architecture.
 Submitted once as a diagnostic (fold-0 model, confidence 0.85), it scores 0.36 public: the same $\approx$0.86
-ratio of public score to held-out PQ as V84 (0.39 vs 0.4555).
+ratio of public score to held-out PQ as V84 (0.39 vs 0.4555). As a second opinion it fares no better: three
+agreement features of each V84 candidate (best IoU with a Mask2Former mask, its score, score-weighted coverage)
+correlate 0.41--0.46 with the target but add only +0.0042 to a re-calibration of V84's estimate (95\% CI
+[$-$0.0015, +0.0101]) and +0.0014 over the deployed rule, so the two model families mostly agree on what is uncertain.
 
 \textbf{OOF 0.459 vs public 0.39.} The export reproduces OOF bit-for-bit on all 707 training files (the test
 code path run on held-out folds). Five one-knob public probes moved the public score by the same amount as
